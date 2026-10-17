@@ -1,0 +1,10 @@
+[Unit]
+Description=Review next action hourly
+
+[Timer]
+OnCalendar=hourly
+Persistent=false
+Unit=now-notify.service
+
+[Install]
+WantedBy=timers.target

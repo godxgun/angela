@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.godxgun.angela",
+  "name": "Angela — Adaptive Assistant",
+  "version": "0.2.0",
+  "author": "Godgun contributors",
+  "license": "MIT",
+  "description": "Local activity and deadline assistant for Omarchy's Quickshell bar",
+  "kinds": ["bar-widget"],
+  "entryPoints": { "barWidget": "BarWidget.qml" },
+  "barWidget": {
+    "displayName": "Angela — Next Action",
+    "category": "Productivity",
+    "defaultSection": "right",
+    "allowMultiple": false
+  }
+}

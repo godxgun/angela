@@ -1,0 +1,6 @@
+[Unit]
+Description=Adaptive local next-action notification
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/now notify

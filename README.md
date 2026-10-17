@@ -11,14 +11,17 @@ It is a **prototype**, not an autonomous planner. It does not detect sleep on it
 
 ## Install on Omarchy / Arch Linux
 
-Python 3.10+ is the only requirement for the core CLI. No pip dependencies.
+Requires `uv` and Python 3.10+; installs no Python packages globally. The
+`now` command is a PEP 723 standalone script executed with `uv run --offline --script`.
+On Arch/Omarchy:
 
 ```bash
+sudo pacman -S uv
 ./install.sh --omarchy
 now snapshot
 ```
 
-The installer copies the CLI into `~/.local/bin/now`, the plugin files to `~/.config/omarchy/plugins/io.github.godxgun.angela/`, and two *disabled-by-default* optional notification systemd user units. On Omarchy it validates and enables the bar widget using the installed `omarchy plugin` CLI.
+The installer checks for `uv`, copies the CLI into `~/.local/bin/now`, the plugin files to `~/.config/omarchy/plugins/io.github.godxgun.angela/`, and two *disabled-by-default* optional notification systemd user units. On Omarchy it validates and enables the bar widget using the installed `omarchy plugin` CLI.
 
 Make sure `~/.local/bin` is on the PATH visible to `omarchy-shell` (`/usr/bin/env now snapshot` must work); if the bar says `Now` and the panel fails to update, first check `now snapshot` in a terminal. Some shell environments need a logout/login after PATH changes.
 
@@ -30,11 +33,24 @@ Check it on the real desktop:
 omarchy plugin list
 omarchy plugin validate ~/.config/omarchy/plugins/io.github.godxgun.angela
 omarchy-shell shell summon io.github.godxgun.angela '{}'
+# If the panel still does not appear, inspect component-load errors:
+qs log -p "$OMARCHY_PATH/shell" --tail 100
 # Optional; availability depends on the installed Qt tooling:
 qmllint -I "$OMARCHY_PATH/shell" ~/.config/omarchy/plugins/io.github.godxgun.angela/{BarWidget,Panel}.qml
 ```
 
 **Note**: Quickshell and Omarchy are not available in the automated test environment used to prepare this repository. The plugin follows Omarchy's published Quattro contract but must be run-tested in your session. Check for Quattro support first; older Omarchy releases using Waybar can use `now bar` instead.
+
+### If clicking the bar widget doesn't open the panel
+
+The initial Panel.qml contained a `data` property that shadowed Qt Quick's
+built-in Item.data; this has been renamed to `snapshotData`. To apply this fix,
+run `git pull && ./install.sh --omarchy`. The installer rescans Omarchy plugins.
+Try `omarchy-shell shell summon io.github.godxgun.angela '{}'` to bypass the
+bar click. If it still won't open, run
+`qs log -p "$OMARCHY_PATH/shell" --tail 100` and check for QML errors.
+You can also restart Quattro using `omarchy-restart-shell` (this will briefly
+restart your desktop bar, not your Hyprland session).
 
 ## Handy + Ollama: two-minute spoken check-ins
 

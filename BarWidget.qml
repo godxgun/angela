@@ -17,7 +17,14 @@ BarWidget {
 
     function open() { if (panelLoader.item) panelLoader.item.open() }
     function close() { if (panelLoader.item) panelLoader.item.close() }
-    function toggle() { if (panelLoader.item) panelLoader.item.toggle() }
+    function toggle() {
+        if (!panelLoader.item) {
+            root.errorMessage = "Angela panel failed to load; check Quickshell logs"
+            console.warn("Angela: Panel.qml has not loaded. Inspect: qs log -p $OMARCHY_PATH/shell --tail 100")
+            return
+        }
+        panelLoader.item.toggle()
+    }
     function closeForPopoutSwitch() {
         if (panelLoader.item) panelLoader.item.closeForPopoutSwitch()
     }
@@ -67,6 +74,12 @@ BarWidget {
         active: true
         source: Qt.resolvedUrl("Panel.qml")
         visible: false
+        onStatusChanged: {
+            if (status === Loader.Error) {
+                root.errorMessage = "Angela panel failed to load; check Quickshell logs"
+                console.error("Angela: failed to load Panel.qml")
+            }
+        }
         onLoaded: {
             root.injectPanel()
             Qt.callLater(root.injectPanel)

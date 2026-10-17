@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.godxgun.angela",
   "name": "Angela — Adaptive Assistant",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": "Godgun contributors",
   "license": "MIT",
   "description": "Local activity and deadline assistant for Omarchy's Quickshell bar",

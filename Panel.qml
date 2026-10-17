@@ -19,12 +19,12 @@ Panel {
     property bool busy: false
     property var actionArgs: []
 
-    readonly property var data: hostWidget ? hostWidget.snapshot : ({})
-    readonly property var rec: data.recommendation || ({})
-    readonly property var active: data.active || null
-    readonly property var upcoming: data.next_fixed || null
-    readonly property var nearest: data.nearest_deadline || null
-    readonly property var progress: data.today_minutes || ({})
+    readonly property var snapshotData: hostWidget ? hostWidget.snapshot : ({})
+    readonly property var rec: snapshotData.recommendation || ({})
+    readonly property var active: snapshotData.active || null
+    readonly property var upcoming: snapshotData.next_fixed || null
+    readonly property var nearest: snapshotData.nearest_deadline || null
+    readonly property var progress: snapshotData.today_minutes || ({})
 
     function open() { root.controller.show() }
     function close() { root.controller.hide() }

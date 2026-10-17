@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --offline --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
 """now: local, adaptive activity journal and calendar-aware next-action CLI (MIT)."""
 from __future__ import annotations
 

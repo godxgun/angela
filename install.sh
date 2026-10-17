@@ -2,6 +2,14 @@
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+if ! command -v uv >/dev/null 2>&1; then
+  printf '%s\n' 'uv is required. On Arch/Omarchy: sudo pacman -S uv' >&2
+  exit 1
+fi
+
+# The CLI itself uses a uv PEP-723 shebang; no system pip or managed
+# site-packages are touched. With no third-party Python dependencies,
+# --offline works using the locally installed Python interpreter.
 install -Dm755 "$here/now.py" "$HOME/.local/bin/now"
 mkdir -p "$HOME/.config/systemd/user"
 install -m644 "$here/systemd/now-notify.service" "$HOME/.config/systemd/user/now-notify.service"
@@ -17,6 +25,9 @@ if [[ "${1:-}" == "--omarchy" ]]; then
   done
   if command -v omarchy >/dev/null; then
     omarchy plugin validate "$dest"
+    if command -v omarchy-shell >/dev/null 2>&1; then
+      omarchy-shell -q shell rescanPlugins || true
+    fi
     omarchy plugin enable "$plugin_id"
   else
     printf '%s\n' 'Omarchy CLI not found; plugin files copied but not enabled.'

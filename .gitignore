@@ -10,3 +10,7 @@ __pycache__/
 *.gguf
 *.ggml
 *.log
+/target/
+/state.json
+/google-token.json
+/credentials.json

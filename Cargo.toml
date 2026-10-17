@@ -1,0 +1,25 @@
+[package]
+name = "angela"
+version = "0.2.0"
+edition = "2021"
+license = "MIT"
+description = "A small local-first voice and schedule assistant"
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = { version = "0.10", features = ["serde"] }
+directories = "6"
+eframe = { version = "0.31", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+rand = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tiny_http = "0.12"
+url = "2"
+webbrowser = "1"
+
+[profile.release]
+strip = true

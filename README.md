@@ -1,154 +1,119 @@
 # Angela
 
-**Angela is a small local-first assistant for irregular working hours.** MIT-licensed Python/SQLite CLI with a Quickshell bar widget for Omarchy Quattro, Handy speech-to-text input, and optional local Ollama parsing.
+A small, MIT-licensed **Rust + egui desktop assistant** for irregular working hours.
+Type or speak a check-in, see your week, track what actually happened, and decide
+what to do next. Omaspeak handles local speech recognition; Ollama interprets
+reports and helps order flexible work. No web frontend or Python runtime is
+required for the desktop app.
 
-- **Calendar**: read-only scheduled commitments and deadlines via `gcalcli` (classes and exams remain fixed).
-- **Scheduler**: deterministic on-the-spot recommendation, recalculated from the actual clock, deadlines, tracked progress, and sleep. Does not try to schedule an imaginary fixed wake-up time.
-- **Activity log**: timed sessions plus dictated retrospective reports. Ollama converts reports into *estimated* task durations; it does not get authority to reschedule your Google Calendar or execute commands.
-- **Omarchy**: a bar widget and dropdown panel compatible with the current Quattro plugin system. The plugin reads `now snapshot` every minute; Google Calendar responses are cached for 10 minutes.
+## Run on Omarchy / Arch
 
-It is a **prototype**, not an autonomous planner. It does not detect sleep on its own, update Google Calendar events, or automatically discover work from the active app. ActivityWatch support and safe, opt-in Calendar writeback are future work.
-
-## Install on Omarchy / Arch Linux
-
-Requires `uv` and Python 3.10+; installs no Python packages globally. The
-`now` command is a PEP 723 standalone script executed with `uv run --offline --script`.
-On Arch/Omarchy:
-
-```bash
-sudo pacman -S uv
-./install.sh --omarchy
-now snapshot
+```sh
+sudo pacman -S rustup base-devel pkgconf pipewire libxkbcommon wayland mesa
+rustup default stable
+cargo run --locked --release
+# Or install the binary and desktop launcher:
+./install-rust.sh
 ```
 
-The installer checks for `uv`, copies the CLI into `~/.local/bin/now`, the plugin files to `~/.config/omarchy/plugins/io.github.godxgun.angela/`, and two *disabled-by-default* optional notification systemd user units. On Omarchy it validates and enables the bar widget using the installed `omarchy plugin` CLI.
+Install your [Omaspeak fork](https://github.com/valvesky/omaspeak) separately.
+In **Settings & connections**, set its executable path (the executable may still
+be named `handy`). Use **Open Omaspeak / download models** for its existing voice
+model manager, then **Find voice models** and select an installed model.
+Angela uses the fork's actual `--list-models --json` and
+`--transcribe-file WAV --model ID --json` interfaces. Voice model downloads and
+microphone/accelerator configuration remain owned by Omaspeak.
 
-Make sure `~/.local/bin` is on the PATH visible to `omarchy-shell` (`/usr/bin/env now snapshot` must work); if the bar says `Now` and the panel fails to update, first check `now snapshot` in a terminal. Some shell environments need a logout/login after PATH changes.
+Install/start Ollama, then use **List models** or **Download model** in Settings.
+The default is `qwen2.5:1.5b`, suitable for trying CPU inference on a small laptop.
+The model is configurable. Ollama calls are restricted to loopback addresses.
 
-The correct way to integrate with Omarchy Quattro is **one shell process**, not a separate Quickshell process. The plugin is a `bar-widget` with `manifest.json`, `BarWidget.qml` and `Panel.qml` at the repository root, so it can also be installed with `omarchy plugin add <repo-url> --enable` after publishing. [Omarchy plugin reference](https://omarchy.org/manual/shell-plugins/).
+## Google Calendar connection
 
-Check it on the real desktop:
+The old Python app depended on an independently configured `gcalcli` account.
+The desktop app connects directly to the Google Calendar API:
 
-```bash
-omarchy plugin list
-omarchy plugin validate ~/.config/omarchy/plugins/io.github.godxgun.angela
-omarchy-shell shell summon io.github.godxgun.angela '{}'
-# If the panel still does not appear, inspect component-load errors:
-qs log -p "$OMARCHY_PATH/shell" --tail 100
-# Optional; availability depends on the installed Qt tooling:
-qmllint -I "$OMARCHY_PATH/shell" ~/.config/omarchy/plugins/io.github.godxgun.angela/{BarWidget,Panel}.qml
+1. In [Google Cloud Console](https://console.cloud.google.com/), enable the Google
+   Calendar API. Configure the OAuth consent screen and add your own account as a
+   test user if the app is in testing mode.
+2. Create an OAuth client with application type **Desktop app**, download its JSON,
+   and put its full path in Angela's **Google Calendar** settings.
+3. Click **Connect Google** and complete consent in your browser. The app listens
+   on a temporary loopback port, verifies OAuth state and uses PKCE.
+
+Access tokens refresh automatically. Sync fetches all calendar pages and expanded
+recurring occurrences for the displayed week, every five minutes and on demand.
+Calendar checkboxes control visibility and which commitments block the local plan.
+University entries titled Entrega, Deadline or Submission become local tasks;
+Portuguese `Hora limite: HH:MM` descriptions supply their due time. Completing
+these tasks affects Angela only, and subsequent sync preserves that completion.
+Errors are shown in the app; previously cached events remain visible with their
+last successful sync time. Disconnect removes the local token and calendar cache;
+you can also revoke access in your Google account.
+
+Google access is **read-only**, as agreed in the original spec. Tracked activity,
+requirements and flexible intentions update locally; Angela never rewrites your
+classes or appointments. The ChatGPT Calendar connector cannot supply a desktop
+app's OAuth credentials. Live sign-in must be completed on your own machine.
+
+## Everyday use
+
+- **Speak → Stop & transcribe** records a temporary 16 kHz mono WAV with PipeWire,
+  then asks Omaspeak to transcribe it. The result lands in the same prompt as typed
+  text. Audio is removed after transcription or on application exit.
+- **Interpret → Apply** previews structured changes from your local Ollama model.
+  Try “I worked on Docs for an hour”, “I'm going to sleep”, “I woke up”,
+  “I need 180 minutes of cardio each week”, or “Add VI submission, two hours,
+  due Monday at 23:59”. You can edit a transcript before interpretation.
+- **Save note** keeps the text locally without asking a model to interpret it.
+- **Start next**, **Start** beside a task, **Stop activity**, **Sleep** and
+  **I'm awake** work without Ollama. Sleep has no assumed bedtime or wake time.
+- **Requirements → Edit** changes minimum minutes, daily/weekly periods and days.
+  Progress uses actual logged intervals. Overlapping reports of the same activity
+  are counted once, and sessions crossing midnight are clipped to local dates.
+- The **flexible queue** has completion checkboxes and up/down controls. Deadlines
+  within 72 hours take precedence. Targets start with DI/DJ/VI/DS at one hour each,
+  drawing at two hours, strength M/W/F and cardio on other days at one hour.
+  Remaining suggestions balance actual weekly Docs/game-development minutes.
+- **Fill gaps** makes local, proposed blocks for an explicit 1–24 hour horizon.
+  **Plan with Ollama** supplies remaining requirements, tasks, fixed commitments
+  and recent sleep to the model, previews its ordering, then uses the same
+  deterministic placement code. Both preserve fixed events and stop proposing
+  work while sleep tracking is active. Nothing assumes every gap must be work.
+
+In the calendar, blue means a fixed commitment, green means tracked activity,
+and purple means a proposed block. Hover for full titles and times. Tasks with
+estimated effort still need to be checked off when finished; a timer alone does
+not prove that the task is complete.
+
+## Data and development
+
+App state is local JSON at `$XDG_DATA_HOME/angela/state.json` (normally
+`~/.local/share/angela/state.json` on Linux). `ANGELA_DATA_DIR` overrides the data
+folder. Writes are atomic; directories and files use private permissions on Unix.
+Google tokens are stored separately in `google-token.json`. Don't commit or share
+that folder. The model receives scheduling context, never OAuth tokens. Save notes
+and interpreted reports remain in the journal inside `state.json`.
+
+The earlier Python/Quickshell prototype remains available and its documentation
+is in [docs/legacy-python.md](docs/legacy-python.md). Its SQLite history and the new
+desktop state are separate; this version does not automatically migrate that history.
+
+The desktop implementation has five modules: UI, domain/scheduling, Google OAuth
+and Calendar, local services, and persistence. Network/inference/transcription
+work runs off the UI thread.
+
+```sh
+cargo fmt --check
+cargo test --locked
+cargo clippy --locked --all-targets -- -D warnings
+cargo build --locked --release
+python -m unittest discover -s tests -v  # legacy prototype
 ```
 
-**Note**: Quickshell and Omarchy are not available in the automated test environment used to prepare this repository. The plugin follows Omarchy's published Quattro contract but must be run-tested in your session. Check for Quattro support first; older Omarchy releases using Waybar can use `now bar` instead.
-
-### If clicking the bar widget doesn't open the panel
-
-The initial Panel.qml contained a `data` property that shadowed Qt Quick's
-built-in Item.data; this has been renamed to `snapshotData`. To apply this fix,
-run `git pull && ./install.sh --omarchy`. The installer rescans Omarchy plugins.
-Try `omarchy-shell shell summon io.github.godxgun.angela '{}'` to bypass the
-bar click. If it still won't open, run
-`qs log -p "$OMARCHY_PATH/shell" --tail 100` and check for QML errors.
-You can also restart Quattro using `omarchy-restart-shell` (this will briefly
-restart your desktop bar, not your Hyprland session).
-
-## Handy + Ollama: two-minute spoken check-ins
-
-[Handy](https://handy.computer/) is **speech-to-text (dictation)**, not text-to-speech. There is no need to install a second speech recognizer for this workflow.
-
-1. Click **Now** in the Omarchy bar to open the panel.
-2. Click the activity report field; use your normal Handy shortcut, or the panel's **Handy dictation** button to toggle transcription (requires `handy` in PATH).
-3. Say e.g. *"I was working on the Docs editor for two hours, then practiced drawing for 45 minutes."*
-4. When Handy has inserted the text, press **Save report (Ollama)**. To avoid the model, press **Save raw**.
-
-Handy inserts into the **currently focused text field**, so don't start dictating while the focus is elsewhere. It works with the supported Handy CLI `handy --toggle-transcription`, which controls an already-running instance. [Handy CLI documentation](https://handy.computer/docs/cli). On Wayland, test Handy's clipboard/paste method inside the panel; using the existing Handy keyboard shortcut is also fine.
-
-Install [Ollama](https://ollama.com/) and download a small model:
-
-```bash
-ollama pull qwen2.5:1.5b
-ollama serve  # only if Ollama isn't running already
-now log 'I spent two hours on docs and another hour on DS.'
-```
-
-Ollama is optional. The default endpoint is loopback `http://127.0.0.1:11434/api/chat` (override with `NOW_OLLAMA_URL`) and default model is `qwen2.5:1.5b` (override with `NOW_MODEL`). The app submits **only the dictated report** to Ollama for structured activity extraction. No raw calendar credentials or entire calendar history go into that prompt. Local inference may be CPU-bound on low-VRAM GPUs.
-
-The `now voice` command from v0.1 still supports whisper.cpp and PipeWire as a standalone optional fallback, but **Handy in the panel is the recommended method** for Omarchy. The older CLI voice path requires `pw-record`, `WHISPER_CLI` and `WHISPER_MODEL`.
-
-## CLI
-
-```bash
-now                    # Human-readable plan
-now snapshot           # Structured JSON for the Quickshell widget
-now start Docs
-now start 'Game development'
-now stop
-now sleep
-now wake
-now log 'I worked on VI for an hour, then made sketches for 30 minutes'
-now log --raw 'Journal entry, never processed by a model'
-now report
-now deadline add 'University submission' 2026-10-19T14:00
-now deadline list
-now deadline done 1
-now agenda             # gcalcli live read (if configured)
-now bar                # Legacy Waybar JSON output
-now notify             # Optional local desktop notification
-now export backup.json
-```
-
-`now snapshot` is a read-only JSON contract and includes current tracking, next-action recommendation, nearest deadline, next fixed event, and today's minutes. Its calendar adapter is cached for ten minutes and marks stale data as stale if sync fails. The recommendations never silently alter your Google Calendar.
-
-### Deterministic scheduling policy (current MVP)
-
-1. If sleep tracking is active, don't suggest work. If a fixed event is underway or begins within twenty minutes, give it precedence.
-2. If an unfinished deadline is within 72 hours, prioritize preparing for it. No LLM is required to make this decision.
-3. Aim for one hour each per day of DI, DJ, VI, and DS; strength training Monday/Wednesday/Friday and cardio on other days; two hours of drawing.
-4. Divide the **remaining** work between Docs and Game Development according to actual logged weekly time, aiming for 50/50.
-
-This is a queue, **not a hard commitment to working 07:00–23:00**. Missing yesterday's preferred block does not move your university class. Every timer start, stop, and wake refreshes the plan. The app does not treat inactivity as proven sleep and does not automatically fill all available time (rest and meals remain yours to decide).
-
-### Google Calendar (optional, read-only)
-
-Install [`gcalcli`](https://github.com/insanum/gcalcli) with e.g. `pipx install gcalcli`, authenticate it using your **own** Google Calendar OAuth credentials, then verify `gcalcli agenda` and `now agenda`. The ChatGPT Google Calendar connector cannot supply local app credentials. `gcalcli` agenda TSV is parsed locally, including the `Hora limite: HH:MM` phrase on a Portuguese university all-day submission entry if the event description is included.
-
-While Calendar isn't connected, the app still works with manually entered `now deadline add` records. Note that **calendar events do not automatically become locally completable deadlines**: mark a local deadline done with `now deadline done ID`, and verify remote due events in Google Calendar. The prototype doesn't attempt to infer from "Entregue? Não" when an assignment was subsequently submitted.
-
-### Optional notifications
-
-```bash
-systemctl --user enable --now now-notify.timer
-# Revert:
-systemctl --user disable --now now-notify.timer
-```
-
-Notifications run hourly, deduplicate repeated recommendations, and are suppressed while a tracked sleep session is active. The Quickshell bar itself polls local JSON every minute; it does not require this timer.
-
-## Privacy, data, and limits
-
-All data is in SQLite at `$XDG_DATA_HOME/now-local/now.sqlite3` or `~/.local/share/now-local/now.sqlite3`. Override with `NOW_DB`. Set `NOW_TZ` for your timezone (default `Europe/Lisbon`). The repo ignores databases, model weights, audio and `.env` files. No microphone is always on; Handy receives audio only when activated. The optional direct `now voice` path deletes temporary WAV/transcription files and retains the transcript in the journal.
-
-Retrospective reports with times (e.g. "I coded for 2 hours") are kept as **reported estimates** separate from timer measurements; the scheduler takes the maximum rather than summing them to reduce double-counting. It is not reliable enough to treat all reports as audited timesheets. Ollama extraction may make mistakes; verify critical records.
-
-The Omarchy plugin executes `now` as your normal desktop user. Omarchy plugin QML is **unsandboxed**; review any plugin before enabling it.
-
-## Develop
-
-```bash
-python -m unittest discover -s tests -v
-python -m py_compile now.py
-```
-
-No network calls are needed for the tests. The core is standard-library Python, and the QML depends on Omarchy's own shell imports. Tested: 12 Python tests; **live Omarchy/Handy integration not yet tested**.
-
-## Repository and contributing
-
-Project: [godxgun/angela](https://github.com/godxgun/angela). The program is called `now`, so you can ask for your next task without typing the full project name.
-
-The Omarchy module ID is `io.github.godxgun.angela`. If you installed the previous experimental module under `io.github.valvesky.now-local`, disable that old plugin before installing Angela to avoid duplicate bar widgets.
-
-This repository is an MIT-licensed prototype. Test its Quickshell integration on your Omarchy desktop before relying on it for deadline notifications.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
+16 automated tests cover scheduler invariants, Calendar pagination and deadlines,
+Ollama requests, model-output validation, and headless UI rendering. The legacy
+Python suite also passes (12 tests). Release build, formatting, and Clippy checks pass.
+Live
+Google consent, your Omaspeak build, microphone capture, and real Ollama inference
+need checking on the target Omarchy desktop.
